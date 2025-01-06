@@ -2,6 +2,18 @@ import React, { useEffect, useState } from 'react';
 import { DirectLine } from 'botframework-directlinejs';
 import './App.css';
 
+const LoadingDots = () => {
+  return (
+    <div className="message bot-message loading-dots">
+      <div className="dot-container">
+        <div className="dot"></div>
+        <div className="dot"></div>
+        <div className="dot"></div>
+      </div>
+    </div>
+  );
+};
+
 const App = () => {
   const tokenEndpoint = process.env.REACT_APP_WEBSITE_TOKEN;
   console.log('API Key:', tokenEndpoint);
@@ -10,6 +22,7 @@ const App = () => {
   const [input, setInput] = useState('');
   const [error, setError] = useState(null);
   const [directLine, setDirectLine] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
 
   const exampleQuestions = [
     'What digital services do you offer?',
@@ -32,7 +45,8 @@ const App = () => {
 
         directLineInstance.activity$.subscribe(
           (activity) => {
-            if (activity.type === 'message') {
+            if (activity.type === 'message' && activity.from.name !== 'User') {
+              setIsLoading(false);
               const enrichedMessage = processMessage(activity.text);
               setMessages((prevMessages) => [
                 ...prevMessages,
@@ -77,13 +91,21 @@ const App = () => {
 
   const sendMessage = (messageText) => {
     if (directLine && messageText.trim()) {
+      setIsLoading(true);
+      setMessages((prevMessages) => [
+        ...prevMessages,
+        { text: messageText, from: 'User' }
+      ]);
       directLine.postActivity({
         from: { id: 'user1', name: 'User' },
         type: 'message',
         text: messageText,
       }).subscribe(
         (id) => console.log(`Message sent with ID: ${id}`),
-        (err) => setError(`Error sending message: ${err}`)
+        (err) => {
+          setIsLoading(false);
+          setError(`Error sending message: ${err}`);
+        }
       );
       setInput('');
     }
@@ -123,6 +145,7 @@ const App = () => {
                   )}
                 </div>
               ))}
+              {isLoading && <LoadingDots />}
             </div>
             <div className="input-container">
               <input
