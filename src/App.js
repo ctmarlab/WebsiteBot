@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { DirectLine } from 'botframework-directlinejs';
 import './App.css';
 
@@ -23,11 +23,13 @@ const App = () => {
   const [error, setError] = useState(null);
   const [directLine, setDirectLine] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const chatWindowRef = useRef(null);
+  const bottomRef = useRef(null);
 
   const exampleQuestions = [
     'What digital services do you offer?',
     'Can you help me with automation solutions?',
-    'Tell me more about cloud services.'
+    'Tell me more about cloud services.',
   ];
 
   useEffect(() => {
@@ -54,15 +56,25 @@ const App = () => {
               ]);
             }
           },
-          (err) => setError(`Error receiving activity: ${err}`)
+          (err) => {
+            setError(`Error receiving activity: ${err}`);
+            setIsLoading(false);
+          }
         );
       } catch (err) {
         setError(err.message);
+        setIsLoading(false);
       }
     };
 
     initializeBotConnection();
   }, [tokenEndpoint]);
+
+  useEffect(() => {
+    if (bottomRef.current) {
+      bottomRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages]);
 
   const processMessage = (text) => {
     const sourceRegex = /\[(\d+)\]:\s*(https?:\/\/[^\s]+)\s*\"([^\"]+)\"/g;
@@ -90,11 +102,11 @@ const App = () => {
   };
 
   const sendMessage = (messageText) => {
-    if (directLine && messageText.trim()) {
+    if (directLine && messageText.trim() && !isLoading) {
       setIsLoading(true);
       setMessages((prevMessages) => [
         ...prevMessages,
-        { text: messageText, from: 'User' }
+        { text: messageText, from: 'User' },
       ]);
       directLine.postActivity({
         from: { id: 'user1', name: 'User' },
@@ -112,7 +124,7 @@ const App = () => {
   };
 
   const handleKeyDown = (event) => {
-    if (event.key === 'Enter') {
+    if (event.key === 'Enter' && !isLoading) {
       sendMessage(input);
     }
   };
@@ -127,7 +139,7 @@ const App = () => {
         {error ? (
           <p className="error-message">Error: {error}</p>
         ) : (
-          <div className="chat-window">
+          <div className="chat-window" ref={chatWindowRef}>
             <div className="messages">
               {messages.map((message, index) => (
                 <div key={index} className={`message ${message.from === 'User' ? 'user-message' : 'bot-message'}`}>
@@ -146,6 +158,7 @@ const App = () => {
                 </div>
               ))}
               {isLoading && <LoadingDots />}
+              <div ref={bottomRef}></div>
             </div>
             <div className="input-container">
               <input
@@ -154,8 +167,14 @@ const App = () => {
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder="Hi there! How can I assist you today?"
+                disabled={isLoading}
+                className={isLoading ? 'input-disabled' : ''}
               />
-              <button onClick={() => sendMessage(input)}>
+              <button 
+                onClick={() => sendMessage(input)} 
+                disabled={isLoading}
+                className={isLoading ? 'button-disabled' : ''}
+              >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
                   viewBox="0 0 24 24"
@@ -175,8 +194,8 @@ const App = () => {
               {exampleQuestions.map((question, index) => (
                 <div
                   key={index}
-                  className="example-question-box"
-                  onClick={() => sendMessage(question)}
+                  className={`example-question-box ${isLoading ? 'disabled' : ''}`}
+                  onClick={() => !isLoading && sendMessage(question)}
                 >
                   {question}
                 </div>
